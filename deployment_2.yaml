@@ -1,0 +1,110 @@
+version: '3'
+
+services:
+  authenticationDB:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 10s
+      retries: 10
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - net_authorization
+
+  authenticationManage:
+    image: manageimage
+    environment:
+      - DATABASE_URL=authenticationDB
+    networks:
+      - net_authorization
+
+  authentication:
+    image: authenticationimage
+    environment:
+      - DATABASE_URL=authenticationDB
+    ports:
+      - 5002:5002
+    networks:
+      - net_authorization
+
+  adminer:
+    image: adminer
+    ports:
+      - 8080:8080
+    networks:
+      - net_authorization
+      - net_elections
+
+  redis:
+    image: redis
+    networks:
+      - net_redis
+
+  electionsDB:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      timeout: 10s
+      retries: 10
+    volumes:
+      - dbdata_elections:/var/lib/mysql
+    networks:
+      - net_elections
+
+  electionsMigration:
+    image: electionsmigrationimage
+    environment:
+      - REDIS=redis
+      - DATABASE_URL=electionsDB
+    networks:
+      - net_elections
+
+  admin:
+    image: adminimage
+    environment:
+      - REDIS=redis
+      - DATABASE_URL=electionsDB
+    ports:
+      - 6002:6002
+    networks:
+      - net_elections
+
+  zvanicnik:
+    image: zvanicnikimage
+    ports:
+      - 6004:6004
+    environment:
+      - REDIS=redis
+      - DATABASE_URL=electionsDB
+    networks:
+      - net_redis
+      - net_elections
+    deploy:
+      replicas: 3
+
+  daemon:
+    image: daemonimage
+    networks:
+      - net_redis
+      - net_elections
+    environment:
+      - REDIS=redis
+      - DATABASE_URL=electionsDB
+
+
+volumes:
+  dbdata:
+  dbdata_elections:
+
+networks:
+  net_authorization:
+    driver: overlay
+  net_redis:
+    driver: overlay
+  net_elections:
+    driver: overlay
